@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { getRepository } from "typeorm";
+import * as Yup from "yup";
 
 import orphanageView from "../views/orphanages_view";
 import Orphanage from "../models/Orphanage";
@@ -9,7 +10,7 @@ export default {
     const orphanageRepository = getRepository(Orphanage);
 
     const orphanages = await orphanageRepository.find({
-      relations: ['images']
+      relations: ["images"],
     });
 
     return response.json(orphanageView.renderMany(orphanages));
@@ -19,8 +20,8 @@ export default {
 
     const orphanageRepository = getRepository(Orphanage);
 
-    const orphanage = await orphanageRepository.findOneOrFail(id,{
-      relations: ['images']
+    const orphanage = await orphanageRepository.findOneOrFail(id, {
+      relations: ["images"],
     });
 
     return response.json(orphanageView.render(orphanage));
@@ -33,7 +34,7 @@ export default {
       about,
       instructions,
       opening_hours,
-      open_on_weekends
+      open_on_weekends,
     } = request.body;
 
     const orphanageRepository = getRepository(Orphanage);
@@ -43,7 +44,7 @@ export default {
       return { path: image.filename };
     });
 
-    const orphanage = orphanageRepository.create({
+    const data = {
       name,
       latitude,
       longitude,
@@ -51,8 +52,29 @@ export default {
       instructions,
       opening_hours,
       open_on_weekends,
-      images
+      images,
+    };
+
+    const schema = Yup.object().shape({
+      name: Yup.string().required(),
+      latitude: Yup.number().required(),
+      longitude: Yup.number().required(),
+      about: Yup.string().required().max(300),
+      instructions: Yup.string().required(),
+      opening_hours: Yup.string().required(),
+      open_on_weekends: Yup.boolean().required(),
+      images: Yup.array(
+        Yup.object().shape({
+          path: Yup.string().required(),
+        })
+      ),
     });
+
+    await schema.validate(data, {
+      abortEarly: false,
+    });
+
+    const orphanage = orphanageRepository.create(data);
 
     await orphanageRepository.save(orphanage);
 
